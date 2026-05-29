@@ -6,7 +6,6 @@ import path from "path";
 import fs from "fs";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { createServer as createViteServer } from "vite";
 import { DB, initDatabase, generateId } from "./server/db";
 
 const JWT_SECRET = process.env.JWT_SECRET || "smart-edu-super-secret-key-2026";
@@ -21,7 +20,11 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-async function startServer() {
+function isRunningOnVercel(): boolean {
+  return process.env.VERCEL === "1";
+}
+
+export async function createApp() {
   // Initialize the database (MongoDB or local JSON fallback)
   await initDatabase();
 
@@ -859,28 +862,35 @@ async function startServer() {
     }
   });
 
-  // --- VITE MIDDLEWARE BOOT FOR PORT 3000 ---
-  const PORT = 3000;
-
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+  // --- VITE MIDDLEWARE OR STATIC SERVING (only for standalone, not Vercel)
+  if (!isRunningOnVercel()) {
+    if (process.env.NODE_ENV !== "production") {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+      app.get("*", (req: Request, res: Response) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Smart Student Management System server running securely on http://localhost:${PORT}`);
-  });
+  return app;
 }
 
-startServer().catch((error) => {
-  console.error("Critical server bootstrap error:", error);
-});
+// Only start the server when run directly (not imported by Vercel)
+if (!isRunningOnVercel()) {
+  createApp().then((app) => {
+    const PORT = 3000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Smart Student Management System server running securely on http://localhost:${PORT}`);
+    });
+  }).catch((error) => {
+    console.error("Critical server bootstrap error:", error);
+  });
+}

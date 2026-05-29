@@ -1,0 +1,6 @@
+{
+  "name": "Smart Student Management System",
+  "description": "A secure, role-based student ERP and analytics dashboard for Admins, Faculty, and Students to manage profiles, track attendance, log marks, and generate reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
